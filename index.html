@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Wasm ImageMagick Example</title>
     <style>
         body {
@@ -102,12 +103,25 @@
         .slider-value {
             text-align: right;
         }
+
+        .row {
+            display: flex;
+        }
+
+        .column {
+            flex: 50%;
+            margin: 5px;
+        }
+
+        #drop_zone {
+            border: 5px solid blue;
+            width: 200px;
+            height: 100px;
+        }
     </style>
     <script type="module">
         import * as Magick from 'https://knicknic.github.io/wasm-imagemagick/magickApi.js';
-        //import * as Magick from 'https://unpkg.com/wasm-imagemagick@1.2.8/dist/magickApi.js';
-        //npm i wasm-imagemagick
-        //wasm-imagemagick
+
         let sourceBytes;
         let outputBlob;
 
@@ -119,6 +133,24 @@
             reader.onload = (e) => {
                 sourceBytes = new Uint8Array(e.target.result);
                 console.log('Image loaded:', sourceBytes);
+                processImage();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+
+        window.loadImageDrop = async function (event) {
+            console.log(event)
+            console.log(event.dataTransfer.files[0]);
+            event.preventDefault();
+            const file = event.dataTransfer.files[0]
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                sourceBytes = new Uint8Array(e.target.result);
+                console.log('Image loaded:', sourceBytes);
+                processImage();
             };
             reader.readAsArrayBuffer(file);
         }
@@ -139,28 +171,17 @@
 
             // Resize
             const newSize = document.getElementById("size").value;
-            if (newSize !== "none") {
-                commands.push("-resize", newSize);
-            }
+            commands.push("-resize", `${newSize}%`);
 
             // Quality
             const newQuality = document.getElementById("quality").value;
-            if (newQuality !== "none") {
-                commands.push("-quality", newQuality);
-            }
+            commands.push("-quality", `${newQuality}%`);
+
 
             // Rotate
             const rotateAngle = document.getElementById("rotate").value;
-            if (rotateAngle !== "") {
-                commands.push("-rotate", rotateAngle);
-            }
+            commands.push("-rotate", rotateAngle);
 
-            // Crop
-            const cropWidth = document.getElementById("crop-width").value;
-            const cropHeight = document.getElementById("crop-height").value;
-            if (cropWidth && cropHeight) {
-                commands.push("-crop", `${cropWidth}x${cropHeight}+0+0`);
-            }
 
             // Flip
             if (document.getElementById("flip-horizontal").checked) {
@@ -173,49 +194,31 @@
             // Brightness/Contrast
             const brightness = document.getElementById("brightness").value;
             const contrast = document.getElementById("contrast").value;
-            if (brightness || contrast) {
-                const brightnessContrast = `${brightness || 0}x${contrast || 0}`;
-                commands.push("-brightness-contrast", brightnessContrast);
-            }
+            const brightnessContrast = `${brightness || 0}x${contrast || 0}`;
+            commands.push("-brightness-contrast", brightnessContrast);
 
-            // Saturation
+
+            // Saturation/Hue
             const saturation = document.getElementById("saturation").value;
-            if (saturation) {
-                commands.push("-modulate", `100,${saturation},100`);
-            }
+            const hue = document.getElementById("hue").value;
+            commands.push("-modulate", `100,${saturation},${hue}`);
+
 
             // Blur
             const blurRadius = document.getElementById("blur").value;
-            if (blurRadius) {
-                commands.push("-blur", `0x${blurRadius}`);
-            }
+            commands.push("-blur", `0x${blurRadius}`);
+
 
             commands.push("out.png");
 
-            console.log('Commands:', commands);
-
             const processedFiles = await Magick.Call([{ 'name': 'srcFile.png', 'content': sourceBytesCopy }], commands);
 
-            /*
-            if (processedFiles.length > 0) {
-                const outputFile = processedFiles[0];
-                outputBlob = new Blob([outputFile.content], { type: 'image/png' });
-                const outputImage = document.getElementById('output');
-                outputImage.src = URL.createObjectURL(outputBlob);
-                outputImage.alt = outputFile.name;
-                outputImage.style.display = "block";
-            } else {
-                console.error('No processed files returned');
-            }
-
-            document.getElementById("spinner").style.display = "none";
-            */
             if (processedFiles.length > 0) {
                 const outputFile = processedFiles[0];
                 const outputImage = document.getElementById('output');
                 outputImage.src = URL.createObjectURL(outputFile.blob);
                 outputBlob = new Blob([outputFile.blob], { type: 'image/png' });
-                //outputBlob = outputFile.blob;
+
                 outputImage.alt = outputFile.name;
                 outputImage.style.display = "block";
                 document.getElementById("download-button").style.display = "inline-block";
@@ -244,71 +247,99 @@
             a.click();
             URL.revokeObjectURL(url);
         }
+
+        window.reset = function () {
+            document.getElementById("input-form").reset()
+            processImage()
+        }
+
+        window.dragOverHandler = function (ev) {
+            console.log("File(s) in drop zone");
+            ev.preventDefault();
+        }
     </script>
 </head>
 
 <body>
     <h1>Wasm ImageMagick Example</h1>
-    <input type="file" accept="image/*" onchange="loadImage(event)">
-    <div class="control-group">
-        <label for="size">Size:</label>
-        <select id="size">
-            <option value="none">None</option>
-            <option value="50%">50%</option>
-            <option value="100%">100%</option>
-            <option value="150%">150%</option>
-        </select>
-    </div>
-    <div class="control-group">
-        <label for="quality">Quality:</label>
-        <select id="quality">
-            <option value="none">None</option>
-            <option value="50">50%</option>
-            <option value="75">75%</option>
-            <option value="100">100%</option>
-        </select>
-    </div>
-    <div class="control-group">
-        <label for="rotate">Rotate (degrees):</label>
-        <input type="number" id="rotate" placeholder="None">
-    </div>
-    <div class="control-group">
-        <label for="crop-width">Crop Width:</label>
-        <input type="number" id="crop-width" placeholder="Width">
-        <label for="crop-height">Crop Height:</label>
-        <input type="number" id="crop-height" placeholder="Height">
-    </div>
-    <div class="control-group">
-        <input type="checkbox" id="flip-horizontal">
-        <label for="flip-horizontal">Flip Horizontal</label>
-    </div>
-    <div class="control-group">
-        <input type="checkbox" id="flip-vertical">
-        <label for="flip-vertical">Flip Vertical</label>
-    </div>
-    <div class="control-group">
-        <label for="brightness">Brightness:</label>
-        <input type="number" id="brightness" placeholder="None">
-    </div>
-    <div class="control-group">
-        <label for="contrast">Contrast:</label>
-        <input type="number" id="contrast" placeholder="None">
-    </div>
-    <div class="control-group">
-        <label for="saturation">Saturation:</label>
-        <input type="number" id="saturation" placeholder="None">
-    </div>
-    <div class="control-group">
-        <label for="blur">Blur Radius:</label>
-        <input type="number" id="blur" placeholder="None">
-    </div>
-    <button onclick="processImage()">Run</button>
-    <div id="output-container">
-        <div id="spinner" class="spinner"></div>
-        <img id="output" alt="Processed image will appear here" style="display:none;">
-        <div class="button-group">
-            <button id="download-button" style="display:none;" onclick="downloadImage()">Download</button>
-            <button id="copy-button" style="display:none;" onclick="copyToClipboard()">Copy to Clipboard</button>
+    <div class="row">
+        <div class="column" style="text-align: right;">
+
+            <form id="input-form" onchange="processImage()">
+                <div class="control-group">
+                    <label for="size">Size:</label>
+                    <input type="range" id="size" min="1" max="1000" value="100"
+                        oninput="this.nextElementSibling.value = this.value">
+                    <output>100</output>
+                </div>
+                <div class="control-group">
+                    <label for="quality">Quality:</label>
+                    <input type="range" id="quality" min="1" max="1000" value="100"
+                        oninput="this.nextElementSibling.value = this.value">
+                    <output>100</output>
+                </div>
+                <div class="control-group">
+                    <label for="rotate">Rotate (degrees):</label>
+                    <input type="range" id="rotate" min="-180" max="180" value="0"
+                        oninput="this.nextElementSibling.value = this.value">
+                    <output>0</output>
+                </div>
+                <div class="control-group">
+                    <label for="flip">Flip</label>
+                    <input type="checkbox" id="flip-horizontal">
+                    <label for="flip-horizontal">Horizontal</label>
+                    <input type="checkbox" id="flip-vertical">
+                    <label for="flip-vertical">Vertical</label>
+                </div>
+                <div class="control-group">
+                    <label for="brightness">Brightness:</label>
+                    <input type="range" id="brightness" min="-100" max="100" value="0"
+                        oninput="this.nextElementSibling.value = this.value">
+                    <output>0</output>
+                </div>
+                <div class="control-group">
+                    <label for="contrast">Contrast:</label>
+                    <input type="range" id="contrast" min="-100" max="100" value="0"
+                        oninput="this.nextElementSibling.value = this.value">
+                    <output>0</output>
+                </div>
+                <div class="control-group">
+                    <label for="saturation">Saturation:</label>
+                    <input type="range" id="saturation" min="0" max="200" value="100"
+                        oninput="this.nextElementSibling.value = this.value">
+                    <output>100</output>
+                </div>
+                <div class="control-group">
+                    <label for="hue">Hue:</label>
+                    <input type="range" id="hue" min="0" max="200" value="100"
+                        oninput="this.nextElementSibling.value = this.value">
+                    <output>100</output>
+                </div>
+                <div class="control-group">
+                    <label for="blur">Blur Radius:</label>
+                    <input type="number" value="0" id="blur">
+                </div>
+                <div class="control-group">
+                    <button onclick="reset()">Reset</button>
+                </div>
+            </form>
+        </div>
+        <div class="column">
+
+            <input type="file" accept="image/*" onchange="loadImage(event)">
+
+            <div id="output-container">
+                <div id="spinner" class="spinner"></div>
+                <div id="drop_zone" ondrop="loadImageDrop(event);" ondragover="dragOverHandler(event);">
+                    test
+                    <img id="output" alt="Processed image will appear here" style="display:none;">
+                </div>
+                <div class="button-group">
+                    <button id="download-button" style="display:none;" onclick="downloadImage()">Download</button>
+                    <button id="copy-button" style="display:none;" onclick="copyToClipboard()">Copy to
+                        Clipboard</button>
+                </div>
+            </div>
         </div>
     </div>
 </body>
