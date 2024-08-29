@@ -24,7 +24,6 @@
         .control-group {
             margin-bottom: 15px;
             width: 100%;
-            max-width: 400px;
         }
 
         label {
@@ -58,9 +57,6 @@
             background-color: #2980b9;
         }
 
-        #output-container {
-            text-align: center;
-        }
 
         .spinner {
             border: 8px solid #f3f3f3;
@@ -71,6 +67,7 @@
             animation: spin 1.5s linear infinite;
             display: none;
             margin: auto;
+            padding: 20px;
         }
 
         @keyframes spin {
@@ -101,24 +98,34 @@
             text-align: right;
         }
 
-        .row {
+
+        .container {
             display: flex;
+            width: 100%;
         }
 
         .column {
-            flex: 50%;
-            margin: 5px;
+            flex: 1;
+            padding: 10px;
+        }
+
+        .right-column form {
+            text-align: left;
+        }
+
+        .left-column form {
+            text-align: right;
         }
 
         #drop-zone {
             border: 2px solid gray;
-            min-width: 200px;
-            min-height: 100px;
+            width: fit-content;
         }
 
         #upload-message {
-            margin:5px;
+            margin: 50px auto;
             text-align: center;
+            width: 300px;
         }
 
         #file-select-label:hover {
@@ -130,14 +137,20 @@
 
         let sourceBytes;
         let outputBlob;
+        let baseName;
+        let outputType;
 
         window.onFileSelect = function (event) {
             loadImage(event.target.files[0]);
+            baseName = event.target.files[0].name.split('.').slice(0, -1).join('.');
+            console.log(event);
         }
 
 
         window.onFileDrop = function (event) {
             event.preventDefault();
+            baseName = "processed_image";
+            console.log(event);
             loadImage(event.dataTransfer.files[0]);
         }
 
@@ -205,16 +218,16 @@
             const blurRadius = document.getElementById("blur").value;
             commands.push("-blur", `0x${blurRadius}`);
 
+            outputType = document.getElementById("filetype").value;
 
-            commands.push("out.png");
-
+            commands.push(`output.${outputType}`);
             const processedFiles = await Magick.Call([{ 'name': 'srcFile.png', 'content': sourceBytesCopy }], commands);
 
             if (processedFiles.length > 0) {
                 const outputFile = processedFiles[0];
                 const outputImage = document.getElementById('output');
-                outputImage.src = URL.createObjectURL(outputFile.blob);
-                outputBlob = new Blob([outputFile.blob], { type: 'image/png' });
+                outputImage.src = URL.createObjectURL(outputFile.blob, { type: `image/${outputType}` });
+                outputBlob = new Blob([outputFile.blob], { type: `image/${outputType}` });
 
                 outputImage.alt = outputFile.name;
                 outputImage.style.display = "block";
@@ -223,13 +236,13 @@
             }
 
             document.getElementById("spinner").style.display = "none";
-            
+
         }
 
         window.copyToClipboard = async function () {
             try {
                 await navigator.clipboard.write([
-                    new ClipboardItem({ 'image/png': outputBlob })
+                    new ClipboardItem({ [`image/png`]: outputBlob })
                 ]);
                 alert("Image copied to clipboard.");
             } catch (err) {
@@ -241,7 +254,7 @@
             const url = URL.createObjectURL(outputBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'processed_image.png';
+            a.download = `${baseName}.${outputType}`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -259,9 +272,9 @@
 </head>
 
 <body>
-    <h1>Wasm ImageMagick Example</h1>
-    <div class="row">
-        <div class="column" style="text-align: right;">
+    <h1>Goose Tools.com</h1>
+    <div class="container">
+        <div class="column left-column">
 
             <form id="input-form" onchange="processImage()">
                 <div class="control-group">
@@ -318,11 +331,19 @@
                     <input type="number" value="0" id="blur">
                 </div>
                 <div class="control-group">
+                    <label for="filetype">Filetype</label>
+                    <select id="filetype">
+                        <option value="jpg">JPG</option>
+                        <option value="png">PNG</option>
+                        <option value="gif">GIF</option>
+                    </select>
+                </div>
+                <div class="control-group">
                     <button onclick="reset()">Reset</button>
                 </div>
             </form>
         </div>
-        <div class="column">
+        <div class="column right-column">
 
 
             <div id="output-container">
@@ -342,7 +363,8 @@
                         <br>
                         or
                         <br>
-                        <input type="file" id="file-select" accept="image/*" onchange="onFileSelect(event)" style="display: none;">
+                        <input type="file" id="file-select" accept="image/*" onchange="onFileSelect(event)"
+                            style="display: none;">
                         <label for="file-select" id="file-select-label">select file</label>
                     </div>
 
